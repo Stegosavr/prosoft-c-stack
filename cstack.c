@@ -71,7 +71,7 @@ int stack_valid_handler(const hstack_t hstack)
 {
 	if ((unsigned int)hstack >= stable.size)
 		return 1;
-	stack_t* stack = stable.stacks[hstack];
+	const stack_t* stack = stable.stacks[hstack];
 	return (stack == NULL);
 }
 
