@@ -28,7 +28,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 #define RECIVE_BUFFER_SIZE 256
-#define INVALID_CMD -1
+#define INVALID -1
 
 typedef struct
 {
@@ -98,10 +98,6 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-//char str[4];
-//sprintf(str, "%d", p);
-//HAL_UART_Transmit(&huart3, str, 4, HAL_MAX_DELAY);
-
 void uart_print(char* str)
 {
     HAL_UART_Transmit(&huart3, str, strlen(str), HAL_MAX_DELAY);
@@ -126,19 +122,8 @@ int try_switch_LD(GPIO_PinState state, int diod_index)
 	return 0;
 }
 
-int match_string(int start, char* string)
-{
-	int pos = start;
-	int len = strlen(string);
-	// skip whitespaces
-	while (pos + len < buf.pos && buf.text[pos] == ' ')
-		++pos;
-
-	if (pos + len >= buf.pos)
-		return -1;
-	return memcmp(string, buf.text + pos, len) == 0 ? pos : -1;
-}
-
+// Read token (space separated string) from global buffer. Stored in buffer.token field.
+// Parsing state persists in global buffer object, so each call reads next token.
 char* buffer_get_next_token()
 {
 	// skip whitespaces
@@ -153,6 +138,7 @@ char* buffer_get_next_token()
 	return buf.token;
 }
 
+// Returns number from string as int. Returns 0 if string contains non digit symbols
 int parse_integer(char* str)
 {
 	int number = 0;
@@ -172,19 +158,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	 if (huart == &huart3)
 	 {
+		 // Output all pressed keys back to user.
 		 HAL_UART_Transmit(&huart3, buf.text + buf.pos, 1, HAL_MAX_DELAY);
 
-		 // when end of command occurs
+		 // If end of command occurs
 		 if (buf.text[buf.pos] == '\r')
 		 {
 			 buffer_get_next_token();
-			 GPIO_PinState state = INVALID_CMD;
+			 GPIO_PinState state = INVALID;
 			 if (strcmp(buf.token, "on") == 0)
 				 state = GPIO_PIN_SET;
 			 else if (strcmp(buf.token, "off") == 0)
 				 state = GPIO_PIN_RESET;
 
-			 if (state == INVALID_CMD)
+			 if (state == INVALID)
 			 {
 				 uart_print(error_msg);
 			 }
@@ -192,7 +179,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			 {
 				 int diod_num = parse_integer(buffer_get_next_token());
 
-				 // print error if there is more than two arguments
+				 // Print error if there is more than two arguments
 				 if (strlen(buffer_get_next_token()) > 0)
 					 uart_print(error_msg);
 				 else
